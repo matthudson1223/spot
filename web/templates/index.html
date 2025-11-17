@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Crossword Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .slider-container input[type="range"] {
+            flex: 1;
+        }
+
+        .slider-value {
+            min-width: 50px;
+            text-align: center;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .progress-container {
+            display: none;
+            margin-top: 30px;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+
+        .progress-container.active {
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .progress-message {
+            text-align: center;
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .result-container {
+            display: none;
+            margin-top: 30px;
+            padding: 25px;
+            background: #f0f7ff;
+            border-radius: 8px;
+            border: 2px solid #667eea;
+        }
+
+        .result-container.active {
+            display: block;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .result-header h3 {
+            color: #667eea;
+            font-size: 1.5rem;
+        }
+
+        .quality-score {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .download-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .download-btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-pdf {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-json {
+            background: #3498db;
+            color: white;
+        }
+
+        .puzzle-preview {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .puzzle-preview h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #c62828;
+            margin-top: 20px;
+        }
+
+        .info-text {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧩 AI Crossword Generator</h1>
+            <p>Generate professional crossword puzzles using AI</p>
+        </div>
+
+        <div class="content">
+            <form id="generateForm">
+                <div class="form-group">
+                    <label for="prompt">Puzzle Description</label>
+                    <textarea id="prompt" name="prompt" placeholder="E.g., Create a crossword about space exploration" required></textarea>
+                    <p class="info-text">Describe the theme or topic for your crossword puzzle</p>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="difficulty">Difficulty</label>
+                        <select id="difficulty" name="difficulty">
+                            <option value="Monday">Monday (Easiest)</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday" selected>Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                            <option value="Saturday">Saturday</option>
+                            <option value="Sunday">Sunday (Hardest)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="size">Grid Size</label>
+                        <select id="size" name="size">
+                            <option value="15x15" selected>15x15 (Standard)</option>
+                            <option value="21x21">21x21 (Sunday)</option>
+                            <option value="13x13">13x13 (Small)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="randomness">Creativity Level</label>
+                    <div class="slider-container">
+                        <input type="range" id="randomness" name="randomness" min="0" max="1" step="0.1" value="0.7">
+                        <span class="slider-value" id="randomnessValue">0.7</span>
+                    </div>
+                    <p class="info-text">Higher values = more creative/unusual words</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="requiredWords">Required Words (Optional)</label>
+                    <input type="text" id="requiredWords" name="requiredWords" placeholder="E.g., APOLLO, NASA, MOON">
+                    <p class="info-text">Comma-separated list of words to include in the puzzle</p>
+                </div>
+
+                <button type="submit" class="btn" id="generateBtn">Generate Crossword</button>
+            </form>
+
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill">0%</div>
+                </div>
+                <p class="progress-message" id="progressMessage">Initializing...</p>
+            </div>
+
+            <div class="result-container" id="resultContainer">
+                <div class="result-header">
+                    <h3>Puzzle Generated!</h3>
+                    <div>
+                        <div style="text-align: center;">
+                            <small style="color: #666;">Quality Score</small>
+                            <div class="quality-score" id="qualityScore">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="download-buttons">
+                    <a href="#" class="download-btn btn-pdf" id="downloadPdf" download>📄 Download PDF</a>
+                    <a href="#" class="download-btn btn-json" id="downloadJson" download>📋 Download JSON</a>
+                </div>
+
+                <div class="puzzle-preview">
+                    <h4>Puzzle Preview</h4>
+                    <pre id="puzzleData" style="font-size: 0.85rem; line-height: 1.4;"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('generateForm');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressMessage = document.getElementById('progressMessage');
+        const resultContainer = document.getElementById('resultContainer');
+        const generateBtn = document.getElementById('generateBtn');
+        const randomnessSlider = document.getElementById('randomness');
+        const randomnessValue = document.getElementById('randomnessValue');
+
+        // Update randomness value display
+        randomnessSlider.addEventListener('input', (e) => {
+            randomnessValue.textContent = e.target.value;
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Hide previous results
+            resultContainer.classList.remove('active');
+            progressContainer.classList.add('active');
+
+            // Disable submit button
+            generateBtn.disabled = true;
+            generateBtn.textContent = 'Generating...';
+
+            // Get form data
+            const formData = {
+                prompt: document.getElementById('prompt').value,
+                difficulty: document.getElementById('difficulty').value,
+                size: document.getElementById('size').value,
+                randomness: parseFloat(document.getElementById('randomness').value),
+                required_words: document.getElementById('requiredWords').value
+                    .split(',')
+                    .map(w => w.trim())
+                    .filter(w => w.length > 0)
+            };
+
+            try {
+                // Submit generation request
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+                const jobId = result.job_id;
+
+                // Poll for status
+                pollJobStatus(jobId);
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Failed to start puzzle generation. Please try again.');
+                resetForm();
+            }
+        });
+
+        async function pollJobStatus(jobId) {
+            const pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/status/${jobId}`);
+                    const status = await response.json();
+
+                    // Update progress
+                    updateProgress(status.progress, status.message);
+
+                    if (status.status === 'completed') {
+                        clearInterval(pollInterval);
+                        showResult(jobId, status);
+                        resetForm();
+                    } else if (status.status === 'failed') {
+                        clearInterval(pollInterval);
+                        showError(status.message);
+                        resetForm();
+                    }
+
+                } catch (error) {
+                    clearInterval(pollInterval);
+                    showError('Failed to check job status');
+                    resetForm();
+                }
+            }, 2000); // Poll every 2 seconds
+        }
+
+        function updateProgress(progress, message) {
+            progressFill.style.width = progress + '%';
+            progressFill.textContent = Math.round(progress) + '%';
+            progressMessage.textContent = message;
+        }
+
+        async function showResult(jobId, status) {
+            progressContainer.classList.remove('active');
+            resultContainer.classList.add('active');
+
+            // Set quality score
+            document.getElementById('qualityScore').textContent =
+                (status.quality_score || 0).toFixed(1) + '/10';
+
+            // Set download links
+            document.getElementById('downloadPdf').href = status.pdf_download_url;
+            document.getElementById('downloadJson').href = status.puzzle_json_url;
+
+            // Load puzzle data
+            try {
+                const response = await fetch(`/api/puzzle/${jobId}`);
+                const puzzleData = await response.json();
+                document.getElementById('puzzleData').textContent =
+                    JSON.stringify(puzzleData, null, 2);
+            } catch (error) {
+                console.error('Failed to load puzzle data:', error);
+            }
+        }
+
+        function showError(message) {
+            progressContainer.classList.remove('active');
+
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+
+            form.appendChild(errorDiv);
+
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+        }
+
+        function resetForm() {
+            generateBtn.disabled = false;
+            generateBtn.textContent = 'Generate Crossword';
+        }
+    </script>
+</body>
+</html>
