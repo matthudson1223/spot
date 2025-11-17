@@ -1,0 +1,40 @@
+gcp:
+  project_id: "your-project-id"  # Replace with your GCP project ID
+  location: "us-central1"
+  bucket_name: "your-project-crossword-training"  # Replace with your bucket name
+
+scraping:
+  start_date: "2020-01-01"
+  end_date: "2023-12-31"
+  delay_seconds: 2
+  target_count: 1000
+  test_mode: true  # Set to false for full scraping
+  test_count: 10  # Number of puzzles for testing
+
+training:
+  base_model_grid: "gemini-1.5-flash-002"
+  base_model_fill: "gemini-1.5-flash-002"
+  base_model_clues: "gemini-1.5-pro-002"
+  epochs: 5
+  train_split: 0.9
+  learning_rate_multiplier: 1.0
+
+generation:
+  max_retries: 3
+  timeout_seconds: 120
+  quality_threshold: 7.0
+  default_size: [15, 15]
+  default_difficulty: "Wednesday"
+  default_randomness: 0.7
+
+validation:
+  min_word_length: 3
+  max_black_square_ratio: 0.20
+  require_symmetry: true
+  require_connectivity: true
+  min_quality_score: 6.0
+
+web:
+  host: "0.0.0.0"
+  port: 8000
+  debug: true
