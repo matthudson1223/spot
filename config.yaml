@@ -1,7 +1,7 @@
 gcp:
-  project_id: "your-project-id"  # Replace with your GCP project ID
+  project_id: "crossword-constructor-478912"  # Replace with your GCP project ID
   location: "us-central1"
-  bucket_name: "your-project-crossword-training"  # Replace with your bucket name
+  bucket_name: "crossword-constructor-data-478912"  # Replace with your bucket name
 
 scraping:
   start_date: "2020-01-01"
