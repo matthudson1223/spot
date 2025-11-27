@@ -10,6 +10,7 @@ import logging
 
 from google.cloud import aiplatform
 from vertexai.generative_models import GenerativeModel
+import vertexai
 
 from utils import load_config, number_grid
 from validators import CompletePuzzleValidator
@@ -21,7 +22,8 @@ logger = logging.getLogger(__name__)
 class ModelClient:
     """Client for interacting with fine-tuned Vertex AI models"""
 
-    def __init__(self, endpoint_name: str, project_id: str, location: str):
+    def __init__(self, model_name: str, endpoint_name: str, project_id: str, location: str):
+        self.model_name = model_name
         self.endpoint_name = endpoint_name
         self.project_id = project_id
         self.location = location
@@ -29,36 +31,39 @@ class ModelClient:
 
         # Initialize Vertex AI
         aiplatform.init(project=project_id, location=location)
+        vertexai.init(project=project_id, location=location)
 
     def load_model(self):
-        """Load the fine-tuned model"""
+        """Load the fine-tuned Gemini model"""
         try:
-            # Load fine-tuned model endpoint
-            # Note: Replace with actual endpoint ID after training
+            # For Gemini tuned models, use GenerativeModel with the endpoint resource
+            logger.info(f"Loading tuned Gemini model from endpoint: {self.endpoint_name}")
+
+            # Use the endpoint resource name directly with GenerativeModel
+            # Gemini tuned models are accessed via GenerativeModel, not Predict API
             self.model = GenerativeModel(self.endpoint_name)
-            logger.info(f"Loaded model: {self.endpoint_name}")
+            logger.info(f"✓ Loaded tuned Gemini model successfully")
+
         except Exception as e:
-            logger.error(f"Failed to load model {self.endpoint_name}: {e}")
-            # Fallback to base model for testing
-            logger.warning("Using base model as fallback")
-            self.model = GenerativeModel("gemini-1.5-flash-002")
+            logger.error(f"Failed to load model from endpoint {self.endpoint_name}: {e}")
+            raise
 
     def generate(self, prompt: str, temperature: float = 0.7) -> str:
-        """Generate response from model"""
+        """Generate response from tuned Gemini model"""
         if not self.model:
             self.load_model()
 
         try:
-            response = self.model.generate_content(
-                prompt,
-                generation_config={
-                    "temperature": temperature,
-                    "max_output_tokens": 8192,
-                }
-            )
+            # For Gemini tuned models, use generate_content() without generation config
+            # The model uses the parameters it was tuned with
+            logger.debug(f"Generating with prompt length: {len(prompt)}")
+            response = self.model.generate_content(prompt)
             return response.text
+
         except Exception as e:
             logger.error(f"Generation failed: {e}")
+            logger.error(f"Model endpoint: {self.endpoint_name}")
+            logger.error(f"Prompt length: {len(prompt)} chars")
             raise
 
 
@@ -95,27 +100,43 @@ class CrosswordOrchestrator:
         """Initialize all three model clients"""
         logger.info("Initializing models...")
 
-        # TODO: Replace with actual endpoint names after training
-        # For now, using base models
+        # Use fine-tuned Gemini models
+        # Actual model and endpoint resource names from Vertex AI tuning jobs
+        # Grid generator: tuning job 228650641361207296
+        #   Model: projects/922813767018/locations/us-central1/models/1942114667140743168@1
+        #   Endpoint: projects/922813767018/locations/us-central1/endpoints/7494226174944477184
+        # Fill generator: tuning job 4152974766661173248
+        #   Model: projects/922813767018/locations/us-central1/models/3297698154979262464@1
+        #   Endpoint: projects/922813767018/locations/us-central1/endpoints/5408637335006871552
+        # Clue generator: tuning job 167852046391705600
+        #   Model: projects/922813767018/locations/us-central1/models/5004562413752680448@1
+        #   Endpoint: projects/922813767018/locations/us-central1/endpoints/6741702824708538368
+
+        # Note: Using project number (922813767018) not project ID
+        project_number = "922813767018"
+
         self.grid_model = ModelClient(
-            "gemini-1.5-flash-002",  # Replace with fine-tuned endpoint
-            self.project_id,
-            self.location
+            model_name=f"projects/{project_number}/locations/{self.location}/models/1942114667140743168@1",
+            endpoint_name=f"projects/{project_number}/locations/{self.location}/endpoints/7494226174944477184",
+            project_id=self.project_id,
+            location=self.location
         )
 
         self.fill_model = ModelClient(
-            "gemini-1.5-flash-002",  # Replace with fine-tuned endpoint
-            self.project_id,
-            self.location
+            model_name=f"projects/{project_number}/locations/{self.location}/models/3297698154979262464@1",
+            endpoint_name=f"projects/{project_number}/locations/{self.location}/endpoints/5408637335006871552",
+            project_id=self.project_id,
+            location=self.location
         )
 
         self.clue_model = ModelClient(
-            "gemini-1.5-pro-002",  # Replace with fine-tuned endpoint
-            self.project_id,
-            self.location
+            model_name=f"projects/{project_number}/locations/{self.location}/models/5004562413752680448@1",
+            endpoint_name=f"projects/{project_number}/locations/{self.location}/endpoints/6741702824708538368",
+            project_id=self.project_id,
+            location=self.location
         )
 
-        logger.info("Models initialized")
+        logger.info("Fine-tuned models initialized successfully")
 
     def generate_crossword(
         self,
