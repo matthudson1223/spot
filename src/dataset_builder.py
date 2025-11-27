@@ -1,10 +1,12 @@
 """
-Dataset builder for Vertex AI training
+Dataset builder for Vertex AI Gemini tuning
 
-Transforms scraped crossword puzzles into three training datasets:
+Transforms scraped crossword puzzles into three training datasets using GenerateContent format:
 1. Grid Generator: Creates grid layout + theme answers
 2. Fill Generator: Fills remaining words given constraints
 3. Clue Generator: Writes clues for all answers
+
+Format: Uses Gemini's GenerateContent format with "contents", "role" (user/model), and "parts"
 """
 import json
 import random
@@ -87,16 +89,16 @@ class DatasetBuilder:
             # Create output (grid structure with theme answers)
             output_data = self._create_grid_output(puzzle)
 
-            # Format for Vertex AI fine-tuning
+            # Format for Gemini tuning (GenerateContent format)
             dataset.append({
-                "messages": [
+                "contents": [
                     {
                         "role": "user",
-                        "content": input_text
+                        "parts": [{"text": input_text}]
                     },
                     {
                         "role": "model",
-                        "content": json.dumps(output_data, indent=2)
+                        "parts": [{"text": json.dumps(output_data, indent=2)}]
                     }
                 ]
             })
@@ -120,15 +122,16 @@ class DatasetBuilder:
             # Create output (all non-theme answers)
             output_data = self._create_fill_output(puzzle)
 
+            # Format for Gemini tuning (GenerateContent format)
             dataset.append({
-                "messages": [
+                "contents": [
                     {
                         "role": "user",
-                        "content": input_text
+                        "parts": [{"text": input_text}]
                     },
                     {
                         "role": "model",
-                        "content": json.dumps(output_data, indent=2)
+                        "parts": [{"text": json.dumps(output_data, indent=2)}]
                     }
                 ]
             })
@@ -163,15 +166,16 @@ class DatasetBuilder:
                         answer, difficulty, theme if is_theme else None
                     )
 
+                    # Format for Gemini tuning (GenerateContent format)
                     dataset.append({
-                        "messages": [
+                        "contents": [
                             {
                                 "role": "user",
-                                "content": input_text
+                                "parts": [{"text": input_text}]
                             },
                             {
                                 "role": "model",
-                                "content": clue_text
+                                "parts": [{"text": clue_text}]
                             }
                         ]
                     })
@@ -189,15 +193,16 @@ class DatasetBuilder:
                         answer, difficulty, theme if is_theme else None
                     )
 
+                    # Format for Gemini tuning (GenerateContent format)
                     dataset.append({
-                        "messages": [
+                        "contents": [
                             {
                                 "role": "user",
-                                "content": input_text
+                                "parts": [{"text": input_text}]
                             },
                             {
                                 "role": "model",
-                                "content": clue_text
+                                "parts": [{"text": clue_text}]
                             }
                         ]
                     })

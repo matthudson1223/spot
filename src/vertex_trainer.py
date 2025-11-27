@@ -1,7 +1,7 @@
 """
 Vertex AI model trainer
 
-Submits fine-tuning jobs to Vertex AI for all three crossword models
+Submits fine-tuning jobs to Vertex AI for all three crossword models using Gemini tuning API
 """
 import time
 import yaml
@@ -10,6 +10,7 @@ from typing import Dict, Optional
 import logging
 
 from google.cloud import aiplatform
+import vertexai
 from google.api_core import exceptions
 
 from utils import load_config
@@ -35,8 +36,9 @@ class VertexAITrainer:
         if not self.project_id or self.project_id == "your-project-id":
             raise ValueError("Please set your GCP project_id in config.yaml")
 
-        # Initialize Vertex AI
+        # Initialize Vertex AI and vertexai SDK
         aiplatform.init(project=self.project_id, location=self.location)
+        vertexai.init(project=self.project_id, location=self.location)
         logger.info(f"Initialized Vertex AI: {self.project_id} ({self.location})")
 
         # Load GCS URIs
@@ -65,14 +67,14 @@ class VertexAITrainer:
         learning_rate_multiplier: float = 1.0
     ) -> aiplatform.Model:
         """
-        Submit a fine-tuning job to Vertex AI
+        Submit a fine-tuning job to Vertex AI using Gemini tuning API
 
         Args:
             model_name: Internal model name (e.g., "model1_grid")
             display_name: Display name for the model
             training_data_uri: GCS URI for training data
             validation_data_uri: GCS URI for validation data
-            base_model: Base model to fine-tune
+            base_model: Base model to fine-tune (e.g., "gemini-1.5-flash-002")
             epochs: Number of training epochs
             learning_rate_multiplier: Learning rate adjustment
 
@@ -89,39 +91,26 @@ class VertexAITrainer:
         logger.info(f"Learning rate multiplier: {learning_rate_multiplier}")
 
         try:
-            # Create tuning job
-            # Note: The exact API may vary based on Vertex AI version
-            # This is a template - adjust based on current Vertex AI SDK
+            logger.info("\nCreating supervised tuning job...")
 
-            logger.info("\nCreating tuning job...")
+            # Use the modern Gemini tuning API
+            # Reference: https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini-tuning
+            from vertexai.preview.tuning import sft
 
-            # For Gemini models, use the PipelineJob approach
-            tuning_job = aiplatform.PipelineJob(
-                display_name=display_name,
-                template_path="https://us-kfp.pkg.dev/ml-pipeline/\
-large-language-model-pipelines/tune-large-model/v2.0.0",
-                parameter_values={
-                    "project": self.project_id,
-                    "location": self.location,
-                    "large_model_reference": base_model,
-                    "train_steps": epochs * 100,  # Adjust as needed
-                    "learning_rate_multiplier": learning_rate_multiplier,
-                    "dataset_uri": training_data_uri,
-                    "evaluation_data_uri": validation_data_uri,
-                    "model_display_name": display_name,
-                },
-                enable_caching=False,
+            # Create supervised fine-tuning job for Gemini
+            tuning_job = sft.train(
+                source_model=base_model,
+                train_dataset=training_data_uri,
+                validation_dataset=validation_data_uri,
+                epochs=epochs,
+                learning_rate_multiplier=learning_rate_multiplier,
+                tuned_model_display_name=display_name,
             )
 
-            logger.info("Submitting job to Vertex AI...")
-            tuning_job.submit()
-
             logger.info(f"\n✓ Training job submitted!")
-            logger.info(f"Job name: {tuning_job.resource_name}")
-            logger.info(f"Job state: {tuning_job.state}")
+            logger.info(f"Job name: {tuning_job.name}")
             logger.info(f"\nMonitor job at:")
-            logger.info(f"https://console.cloud.google.com/vertex-ai/training/\
-training-pipelines?project={self.project_id}")
+            logger.info(f"https://console.cloud.google.com/vertex-ai/generative/tuning?project={self.project_id}")
 
             return tuning_job
 
@@ -131,7 +120,8 @@ training-pipelines?project={self.project_id}")
             logger.error("1. Check that Vertex AI API is enabled")
             logger.error("2. Verify your GCS URIs are correct")
             logger.error("3. Ensure you have proper IAM permissions")
-            logger.error("4. Check that the base model name is valid")
+            logger.error("4. Check that the base model name is valid for Gemini tuning")
+            logger.error("5. Make sure training data is in correct JSONL format")
             raise
 
     def train_all_models(self, wait_for_completion: bool = False) -> Dict[str, any]:
@@ -233,8 +223,12 @@ training-pipelines?project={self.project_id}")
 
             logger.info(f"\nWaiting for {job_name}...")
             try:
-                job.wait()
-                logger.info(f"✓ {job_name} completed: {job.state}")
+                # For Gemini tuning jobs, refresh and check state
+                job.refresh()
+                while job.state.name not in ['SUCCEEDED', 'FAILED', 'CANCELLED']:
+                    time.sleep(60)  # Check every minute
+                    job.refresh()
+                logger.info(f"✓ {job_name} completed: {job.state.name}")
             except Exception as e:
                 logger.error(f"✗ {job_name} failed: {e}")
 
@@ -248,15 +242,14 @@ training-pipelines?project={self.project_id}")
             if job:
                 logger.info(f"\n{job_name}:")
                 logger.info(f"  Status: Submitted")
-                logger.info(f"  Job: {job.resource_name}")
+                logger.info(f"  Job: {job.name}")
             else:
                 logger.info(f"\n{job_name}:")
                 logger.info(f"  Status: Failed to submit")
 
         logger.info("\n" + "="*70)
         logger.info("Monitor all jobs at:")
-        logger.info(f"https://console.cloud.google.com/vertex-ai/training/\
-training-pipelines?project={self.project_id}")
+        logger.info(f"https://console.cloud.google.com/vertex-ai/generative/tuning?project={self.project_id}")
         logger.info("="*70 + "\n")
 
     def _save_job_info(self, jobs: Dict) -> None:
@@ -268,10 +261,10 @@ training-pipelines?project={self.project_id}")
         for job_name, job in jobs.items():
             if job:
                 job_info[job_name] = {
-                    "resource_name": job.resource_name,
-                    "display_name": job.display_name,
-                    "state": str(job.state),
-                    "created_time": str(job.create_time) if hasattr(job, 'create_time') else None
+                    "job_name": job.name,
+                    "state": str(job.state.name) if hasattr(job.state, 'name') else str(job.state),
+                    "tuned_model_name": job.tuned_model_name if hasattr(job, 'tuned_model_name') else None,
+                    "tuned_model_endpoint_name": job.tuned_model_endpoint_name if hasattr(job, 'tuned_model_endpoint_name') else None,
                 }
 
         with open(output_file, 'w') as f:
@@ -279,11 +272,13 @@ training-pipelines?project={self.project_id}")
 
         logger.info(f"Job information saved to: {output_file}")
 
-    def check_job_status(self, job_resource_name: str) -> str:
-        """Check status of a training job"""
+    def check_job_status(self, job_name: str) -> str:
+        """Check status of a Gemini tuning job"""
         try:
-            job = aiplatform.PipelineJob.get(job_resource_name)
-            return job.state
+            from vertexai.preview.tuning import sft
+            job = sft.SupervisedTuningJob(job_name)
+            job.refresh()
+            return job.state.name
         except Exception as e:
             logger.error(f"Failed to get job status: {e}")
             return "UNKNOWN"

@@ -12,9 +12,9 @@ scraping:
   test_count: 10  # Number of puzzles for testing
 
 training:
-  base_model_grid: "gemini-1.5-flash-002"
-  base_model_fill: "gemini-1.5-flash-002"
-  base_model_clues: "gemini-1.5-pro-002"
+  base_model_grid: "gemini-2.5-flash"
+  base_model_fill: "gemini-2.5-flash"
+  base_model_clues: "gemini-2.5-pro"
   epochs: 5
   train_split: 0.9
   learning_rate_multiplier: 1.0
